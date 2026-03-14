@@ -24,8 +24,7 @@
   "author": "Demo User",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.16.4",
-    "nodemon": "^2.0.20"
+    "express": "^4.16.4"
   },
   "devDependencies": {
     "chai": "^4.2.0",
@@ -35,6 +34,7 @@
     "mocha": "^5.2.0",
     "mocha-junit-reporter": "^1.18.0",
     "mocha-multi-reporters": "^1.1.7",
+    "nodemon": "^3.1.14",
     "nyc": "^13.3.0",
     "supertest": "^3.4.2"
   },
