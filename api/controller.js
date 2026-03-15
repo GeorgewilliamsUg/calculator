@@ -77,5 +77,11 @@ exports.calculate = function (req, res) {
     ? operation(operand1)
     : operation(operand1, operand2);
 
+  // Avoid common floating point artifacts (0.1 + 0.2 -> 0.30000000000000004)
+  if (typeof result === 'number' && Number.isFinite(result)) {
+    // Keep up to 12 significant digits (safe for typical calculator use)
+    result = Number(result.toPrecision(12));
+  }
+
   res.json({ result: result });
 };

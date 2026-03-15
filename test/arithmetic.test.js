@@ -91,6 +91,14 @@ describe('Arithmetic', function () {
                     done();
                 });
         });
+        it('adds decimals without floating point artifact', function (done) {
+            request.get('/arithmetic?operation=add&operand1=0.1&operand2=0.2')
+                .expect(200)
+                .end(function (err, res) {
+                    expect(res.body).to.eql({ result: 0.3 });
+                    done();
+                });
+        });
     });
 
 // TODO: Challenge #1
