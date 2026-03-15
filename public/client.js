@@ -213,11 +213,22 @@ function executeOperation(operation, operand1, operand2) {
   fetch(uri.toString())
     .then((res) => {
       if (!res.ok) {
-        return res.json().then((payload) => {
-          throw new Error(payload.error || 'Server error');
+        return res.text().then((text) => {
+          try {
+            const payload = JSON.parse(text);
+            throw new Error(payload.error || 'Server error');
+          } catch (parseErr) {
+            throw new Error(`Server error (${res.status})`);
+          }
         });
       }
-      return res.json();
+      return res.text().then((text) => {
+        try {
+          return JSON.parse(text);
+        } catch (parseErr) {
+          throw new Error('Invalid server response');
+        }
+      });
     })
     .then((payload) => {
       current = String(payload.result);
@@ -229,6 +240,7 @@ function executeOperation(operation, operand1, operand2) {
       setStatus(err.message || 'Unexpected error');
     });
 }
+
 
 function buildExpression(operation, a, b) {
   const opMap = {
