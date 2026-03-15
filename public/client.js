@@ -1,202 +1,332 @@
 'use strict';
 
-var value = 0;
+const displayEl = document.getElementById('display');
+const statusEl = document.getElementById('status');
+const historyListEl = document.getElementById('historyList');
+const clearHistoryBtn = document.getElementById('clearHistory');
 
-var states = {
-    "start": 0,
-    "operand1": 1,
-    "operator": 2,
-    "operand2": 3,
-    "complete": 4
-};
+const STORAGE_KEY = 'node-calculator-history';
+const VALID_NUMBER_REGEX = /^-?[0-9]+(?:\.[0-9]*)?(?:e-?\d+)?$/i;
 
-var state = states.start;
+let current = '0';
+let pendingOperand = null;
+let pendingOperator = null;
+let waitingForOperand = false;
 
-var operand1 = 0;
-var operand2 = 0;
-var operation = null;
+function init() {
+  bindEvents();
+  loadHistory();
+  render();
+}
 
-function calculate(operand1, operand2, operation) {
-    var uri = location.origin + "/arithmetic";
+function bindEvents() {
+  document.querySelectorAll('[data-action]').forEach((button) => {
+    button.addEventListener('click', handleButtonClick);
+  });
 
-    switch (operation) {
-        case '+':
-            uri += "?operation=add";
-            break;
-        case '-':
-            uri += "?operation=subtract";
-            break;
-        case '*':
-            uri += "?operation=multiply";
-            break;
-        case '/':
-            uri += "?operation=divide";
-            break;
-        case '^':
-            uri += "?operation=power";
-            break;
-        default:
-            setError();
-            return;
+  clearHistoryBtn.addEventListener('click', () => {
+    clearHistory();
+    renderHistory();
+  });
+
+  document.addEventListener('keydown', handleKeyDown);
+}
+
+function handleButtonClick(event) {
+  const button = event.currentTarget;
+  const action = button.dataset.action;
+  const value = button.dataset.value;
+
+  switch (action) {
+    case 'digit':
+      appendDigit(value);
+      break;
+    case 'decimal':
+      appendDecimal();
+      break;
+    case 'operator':
+      setOperator(value);
+      break;
+    case 'equals':
+      calculate();
+      break;
+    case 'clear':
+      clearAll();
+      break;
+    case 'clear-entry':
+      clearEntry();
+      break;
+    case 'backspace':
+      backspace();
+      break;
+    default:
+      break;
+  }
+}
+
+function handleKeyDown(event) {
+  if (event.target.tagName === 'INPUT' || event.target.isContentEditable) {
+    return;
+  }
+
+  if (/^[0-9]$/.test(event.key)) {
+    appendDigit(event.key);
+  } else if (event.key === '.') {
+    appendDecimal();
+  } else if (event.key === 'Enter') {
+    event.preventDefault();
+    calculate();
+  } else if (event.key === 'Backspace') {
+    backspace();
+  } else if (event.key === 'Escape') {
+    clearAll();
+  } else if (['+', '-', '*', '/', '^', '%'].includes(event.key)) {
+    setOperator(event.key);
+  } else if (event.key.toLowerCase() === 'r') {
+    setOperator('sqrt');
+  }
+}
+
+function appendDigit(digit) {
+  clearStatus();
+
+  if (waitingForOperand) {
+    current = digit;
+    waitingForOperand = false;
+    render();
+    return;
+  }
+
+  if (current === '0') {
+    current = digit;
+  } else {
+    current += digit;
+  }
+
+  render();
+}
+
+function appendDecimal() {
+  clearStatus();
+
+  if (waitingForOperand) {
+    current = '0.';
+    waitingForOperand = false;
+    render();
+    return;
+  }
+
+  if (!current.includes('.')) {
+    current += '.';
+    render();
+  }
+}
+
+function backspace() {
+  clearStatus();
+
+  if (waitingForOperand) {
+    return;
+  }
+
+  if (current.length <= 1) {
+    current = '0';
+  } else {
+    current = current.slice(0, -1);
+  }
+
+  render();
+}
+
+function clearEntry() {
+  clearStatus();
+  current = '0';
+  render();
+}
+
+function clearAll() {
+  clearStatus();
+  current = '0';
+  pendingOperand = null;
+  pendingOperator = null;
+  waitingForOperand = false;
+  render();
+}
+
+function setOperator(op) {
+  clearStatus();
+
+  const mappedOp = op === '%' ? 'mod' : op === '^' ? 'power' : op;
+
+  // Unary operation (sqrt)
+  if (mappedOp === 'sqrt') {
+    executeOperation('sqrt', current);
+    return;
+  }
+
+  if (pendingOperator && !waitingForOperand) {
+    // Chain operations: compute and continue
+    calculate();
+  }
+
+  pendingOperand = current;
+  pendingOperator = mappedOp;
+  waitingForOperand = true;
+  render();
+}
+
+function calculate() {
+  clearStatus();
+
+  if (!pendingOperator) {
+    return;
+  }
+
+  if (waitingForOperand) {
+    setStatus('Enter second number', 'warning');
+    return;
+  }
+
+  executeOperation(pendingOperator, pendingOperand, current);
+  pendingOperator = null;
+  pendingOperand = null;
+  waitingForOperand = false;
+}
+
+function executeOperation(operation, operand1, operand2) {
+  const uri = new URL('/arithmetic', location.origin);
+  uri.searchParams.set('operation', operation);
+  uri.searchParams.set('operand1', operand1);
+
+  if (operand2 !== undefined) {
+    uri.searchParams.set('operand2', operand2);
+  }
+
+  const isValid = validateNumber(operand1) && (operand2 === undefined || validateNumber(operand2));
+  if (!isValid) {
+    setStatus('Invalid number format');
+    return;
+  }
+
+  setStatus('Calculating...', 'info');
+
+  fetch(uri.toString())
+    .then((res) => {
+      if (!res.ok) {
+        return res.json().then((payload) => {
+          throw new Error(payload.error || 'Server error');
+        });
+      }
+      return res.json();
+    })
+    .then((payload) => {
+      current = String(payload.result);
+      addHistoryEntry({ expression: buildExpression(operation, operand1, operand2), result: current });
+      render();
+      setStatus('');
+    })
+    .catch((err) => {
+      setStatus(err.message || 'Unexpected error');
+    });
+}
+
+function buildExpression(operation, a, b) {
+  const opMap = {
+    add: '+',
+    subtract: '−',
+    multiply: '×',
+    divide: '÷',
+    power: '^',
+    mod: '%',
+    sqrt: '√'
+  };
+
+  if (operation === 'sqrt') {
+    return `√(${a})`;
+  }
+
+  return `${a} ${opMap[operation] || operation} ${b}`;
+}
+
+function validateNumber(value) {
+  return typeof value === 'string' && VALID_NUMBER_REGEX.test(value);
+}
+
+function setStatus(message, type = 'error') {
+  statusEl.textContent = message;
+  statusEl.className = type ? `status status--${type}` : 'status';
+}
+
+function clearStatus() {
+  setStatus('', '');
+}
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (Array.isArray(parsed)) {
+      history = parsed;
     }
-
-    uri += "&operand1=" + encodeURIComponent(operand1);
-    uri += "&operand2=" + encodeURIComponent(operand2);
-
-    setLoading(true);
-
-    var http = new XMLHttpRequest();
-    http.open("GET", uri, true);
-    http.onload = function () {
-        setLoading(false);
-
-        if (http.status == 200) {
-            var response = JSON.parse(http.responseText);
-            setValue(response.result);
-        } else {
-            setError();
-        }
-    };
-    http.send(null);
+  } catch (err) {
+    history = [];
+  }
+  renderHistory();
 }
 
-function clearPressed() {
-    setValue(0);
-
-    operand1 = 0;
-    operand2 = 0;
-    operation = null;
-    state = states.start;
+function saveHistory() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(history || []));
 }
 
-function clearEntryPressed() {
-    setValue(0);
-    state = (state == states.operand2) ? states.operator : states.start;
+let history = [];
+
+function addHistoryEntry(entry) {
+  history = [entry].concat(history).slice(0, 20);
+  renderHistory();
+  saveHistory();
 }
 
-function numberPressed(n) {
-    var value = getValue();
+function renderHistory() {
+  historyListEl.innerHTML = '';
 
-    if (state == states.start || state == states.complete) {
-        value = n;
-        state = (n == '0' ? states.start : states.operand1);
-    } else if (state == states.operator) {
-        value = n;
-        state = (n == '0' ? states.operator : states.operand2);
-    } else if (value.replace(/[-\.]/g, '').length < 8) {
-        value += n;
-    }
+  if (!history.length) {
+    historyListEl.innerHTML = '<li class="history__empty">No calculations yet</li>';
+    return;
+  }
 
-    value += "";
+  history.forEach((entry) => {
+    const li = document.createElement('li');
+    li.className = 'history__item';
 
-    setValue(value);
+    const label = document.createElement('button');
+    label.type = 'button';
+    label.className = 'history__itemButton';
+    label.textContent = `${entry.expression} = ${entry.result}`;
+    label.addEventListener('click', () => {
+      current = String(entry.result);
+      pendingOperator = null;
+      pendingOperand = null;
+      waitingForOperand = false;
+      render();
+    });
+
+    li.appendChild(label);
+    historyListEl.appendChild(li);
+  });
 }
 
-function decimalPressed() {
-    if (state == states.start || state == states.complete) {
-        setValue('0.');
-        state = states.operand1;
-    } else if (state == states.operator) {
-        setValue('0.');
-        state = states.operand2;
-    } else if (!getValue().toString().includes('.')) {
-        setValue(getValue() + '.');
-    }
+function clearHistory() {
+  history = [];
+  saveHistory();
 }
 
-function signPressed() {
-    var value = getValue();
+function render() {
+  displayEl.textContent = current;
 
-    if (value != 0) {
-        setValue(-1 * value);
-    }
+  const equalsBtn = document.querySelector('[data-action="equals"]');
+  if (equalsBtn) {
+    equalsBtn.disabled = !pendingOperator || waitingForOperand;
+  }
 }
 
-function operationPressed(op) {
-    operand1 = getValue();
-    operation = op;
-    state = states.operator;
-}
-
-function equalPressed() {
-    if (state < states.operand2) {
-        state = states.complete;
-        return;
-    }
-
-    if (state == states.operand2) {
-        operand2 = getValue();
-        state = states.complete;
-    } else if (state == states.complete) {
-        operand1 = getValue();
-    }
-
-    calculate(operand1, operand2, operation);
-}
-
-// TODO: Add key press logics
-document.addEventListener('keypress', (event) => {
-    if (event.key.match(/^\d+$/)) {
-        numberPressed(event.key);
-    } else if (event.key == '.') {
-        decimalPressed();
-    } else if (event.key.match(/^[-*+/]$/)) {
-        operationPressed(event.key);
-    } else if (event.key == '=') {
-        equalPressed();
-    }
-});
-
-function getValue() {
-    return value;
-}
-
-function setValue(n) {
-    value = n;
-    var displayValue = value;
-
-    if (displayValue > 99999999) {
-        displayValue = displayValue.toExponential(4);
-    } else if (displayValue < -99999999) {
-        displayValue = displayValue.toExponential(4);
-    } else if (displayValue > 0 && displayValue < 0.0000001) {
-        displayValue = displayValue.toExponential(4);
-    } else if (displayValue < 0 && displayValue > -0.0000001) {
-        displayValue = displayValue.toExponential(3);
-    }
-
-    var chars = displayValue.toString().split("");
-    var html = "";
-
-    for (var c of chars) {
-        if (c == '-') {
-            html += "<span class=\"resultchar negative\">" + c + "</span>";
-        } else if (c == '.') {
-            html += "<span class=\"resultchar decimal\">" + c + "</span>";
-        } else if (c == 'e') {
-            html += "<span class=\"resultchar exponent\">e</span>";
-        } else if (c != '+') {
-            html += "<span class=\"resultchar digit" + c + "\">" + c + "</span>";
-        }
-    }
-
-    document.getElementById("result").innerHTML = html;
-}
-
-function setError(n) {
-    document.getElementById("result").innerHTML = "ERROR";
-}
-
-function setLoading(loading) {
-    if (loading) {
-        document.getElementById("loading").style.visibility = "visible";
-    } else {
-        document.getElementById("loading").style.visibility = "hidden";
-    }
-
-    var buttons = document.querySelectorAll("BUTTON");
-
-    for (var i = 0; i < buttons.length; i++) {
-        buttons[i].disabled = loading;
-    }
-}
+init();

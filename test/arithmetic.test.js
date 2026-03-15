@@ -188,7 +188,7 @@ describe('Arithmetic', function () {
                     done();
                 });
         });
-        it('divides by zero', function (done) {
+        it('divides a decimal by a positive integer', function (done) {
             request.get('/arithmetic?operation=divide&operand1=0.5&operand2=2')
                 .expect(200)
                 .end(function (err, res) {
@@ -196,11 +196,49 @@ describe('Arithmetic', function () {
                     done();
                 });
         });
-        it('divides by zero', function (done) {
+        it('rejects divide by zero', function (done) {
             request.get('/arithmetic?operation=divide&operand1=21&operand2=0')
+                .expect(400)
+                .end(function (err, res) {
+                    expect(res.body).to.eql({ error: 'Cannot divide by zero' });
+                    done();
+                });
+        });
+    });
+
+    describe('Modulo', function () {
+        it('computes remainder of a positive division', function (done) {
+            request.get('/arithmetic?operation=mod&operand1=20&operand2=6')
                 .expect(200)
                 .end(function (err, res) {
-                    expect(res.body).to.eql({ result: null });
+                    expect(res.body).to.eql({ result: 2 });
+                    done();
+                });
+        });
+        it('rejects modulo by zero', function (done) {
+            request.get('/arithmetic?operation=mod&operand1=20&operand2=0')
+                .expect(400)
+                .end(function (err, res) {
+                    expect(res.body).to.eql({ error: 'Cannot modulo by zero' });
+                    done();
+                });
+        });
+    });
+
+    describe('Square Root (unary)', function () {
+        it('computes square root of a positive number', function (done) {
+            request.get('/arithmetic?operation=sqrt&operand1=9')
+                .expect(200)
+                .end(function (err, res) {
+                    expect(res.body).to.eql({ result: 3 });
+                    done();
+                });
+        });
+        it('rejects square root of negative number', function (done) {
+            request.get('/arithmetic?operation=sqrt&operand1=-9')
+                .expect(400)
+                .end(function (err, res) {
+                    expect(res.body).to.eql({ error: 'Cannot square root a negative number' });
                     done();
                 });
         });

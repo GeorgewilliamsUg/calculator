@@ -1,49 +1,66 @@
-<html>
+<!doctype html>
+<html lang="en">
   <head>
-    <title>Calculator</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Node Calculator</title>
     <link rel="stylesheet" href="default.css">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-    <script src="client.js"></script>
   </head>
-  <body onLoad="setValue(0)">
-    <div class="container">
-      <div id="results">
-        <div id="result"><span class="digit0">0</span></div>
+  <body>
+    <header class="header">
+      <div class="header__title">
+        <h1>Node Calculator</h1>
+        <p class="tagline">REST-powered calculator with history and validation.</p>
       </div>
+      <div class="header__meta">
+        <span class="badge">Powered by GitHub Copilot</span>
+      </div>
+    </header>
 
-      <div id="loading" style="visibility:hidden"></div>
+    <main class="main">
+      <section class="calculator" aria-label="Calculator">
+        <div class="display" id="display" role="status" aria-live="polite">0</div>
+        <div class="status" id="status" aria-live="assertive"></div>
 
-      <div class="box">
-        <div class="calculator">
-          <div class="calculator-buttons">
-            <button class="btn span-2"></button>
-            <button class="btn" onClick="clearPressed()">C</button>
-            <button class="btn" onClick="clearPressed()">CE</button>
+        <div class="keys">
+          <button class="key key--wide" data-action="clear" aria-label="All clear">AC</button>
+          <button class="key" data-action="clear-entry" aria-label="Clear entry">CE</button>
+          <button class="key" data-action="backspace" aria-label="Backspace">⌫</button>
+          <button class="key key--operator" data-action="operator" data-value="/">÷</button>
 
-            <button class="btn" onClick="numberPressed(7)">7</button>
-            <button class="btn" onClick="numberPressed(8)">8</button>
-            <button class="btn" onClick="numberPressed(9)">9</button>
-            <button class="btn" onClick="operationPressed('/')">&divide;</button>
+          <button class="key" data-action="digit" data-value="7">7</button>
+          <button class="key" data-action="digit" data-value="8">8</button>
+          <button class="key" data-action="digit" data-value="9">9</button>
+          <button class="key key--operator" data-action="operator" data-value="*">×</button>
 
-            <button class="btn" onClick="numberPressed(4)">4</button>
-            <button class="btn" onClick="numberPressed(5)">5</button>
-            <button class="btn" onClick="numberPressed(6)">6</button>
-            <button class="btn" onClick="operationPressed('*')">x</button>
+          <button class="key" data-action="digit" data-value="4">4</button>
+          <button class="key" data-action="digit" data-value="5">5</button>
+          <button class="key" data-action="digit" data-value="6">6</button>
+          <button class="key key--operator" data-action="operator" data-value="-">−</button>
 
-            <button class="btn" onClick="numberPressed(1)">1</button>
-            <button class="btn" onClick="numberPressed(2)">2</button>
-            <button class="btn" onClick="numberPressed(3)">3</button>
-            <button class="btn" onClick="operationPressed('-')">-</button>
+          <button class="key" data-action="digit" data-value="1">1</button>
+          <button class="key" data-action="digit" data-value="2">2</button>
+          <button class="key" data-action="digit" data-value="3">3</button>
+          <button class="key key--operator" data-action="operator" data-value="+">+</button>
 
-            <button class="btn" onClick="numberPressed(0)">0</button>
-            <button class="btn" onClick="decimalPressed()">.</button>
-            <button class="btn" onClick="operationPressed('+')">+</button>
-            <button class="btn" onClick="operationPressed('^')">^</button>
-            <button class="btn" onClick="equalPressed()">=</button>
+          <button class="key" data-action="digit" data-value="0">0</button>
+          <button class="key" data-action="decimal" aria-label="Decimal point">.</button>
+          <button class="key" data-action="operator" data-value="%">%</button>
+          <button class="key" data-action="operator" data-value="^">^</button>
 
-          </div>
+          <button class="key key--wide key--equals" data-action="equals" aria-label="Calculate">=</button>
         </div>
-      </div>
-    </div>
+      </section>
+
+      <section class="history" aria-label="Calculation history">
+        <div class="history__header">
+          <h2>History</h2>
+          <button class="history__clear" id="clearHistory" type="button">Clear</button>
+        </div>
+        <ul class="history__list" id="historyList" role="list"></ul>
+      </section>
+    </main>
+
+    <script src="client.js"></script>
   </body>
 </html>
