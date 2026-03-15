@@ -194,7 +194,12 @@ function calculate() {
 }
 
 function executeOperation(operation, operand1, operand2) {
-  const uri = new URL('/arithmetic', location.origin);
+  // When the page is opened via file:// (no server origin), default to localhost.
+  const origin = (location.protocol === 'http:' || location.protocol === 'https:')
+    ? location.origin
+    : 'http://localhost:3000';
+
+  const uri = new URL('/arithmetic', origin);
   uri.searchParams.set('operation', operation);
   uri.searchParams.set('operand1', operand1);
 
@@ -237,9 +242,15 @@ function executeOperation(operation, operand1, operand2) {
       setStatus('');
     })
     .catch((err) => {
-      setStatus(err.message || 'Unexpected error');
+      const message = err.message || 'Unexpected error';
+      setStatus(
+        message.includes('Failed to fetch')
+          ? 'Cannot reach API server. Run `npm start` and open via http://localhost:3000'
+          : message
+      );
     });
 }
+
 
 
 function buildExpression(operation, a, b) {
